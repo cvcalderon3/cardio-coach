@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iPhone App Settings -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+    
+    <title>Calderon Cardio Coach</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0a0a;
+            --card-bg: #1a1a1a;
+            --work-red: #ff3b30;
+            --rest-green: #34c759;
+            --accent-blue: #007aff;
+            --progress-orange: #ff9500;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: white;
+            overflow: hidden;
+            touch-action: manipulation;
+            -webkit-tap-highlight-color: transparent;
+            height: 100dvh;
+        }
+
+        .intensity-work { background-color: var(--work-red) !important; color: white !important; }
+        .intensity-rest { background-color: var(--rest-green) !important; color: white !important; }
+        .intensity-warmup { background-color: var(--accent-blue) !important; color: white !important; }
+
+        .big-timer {
+            font-size: 25vw;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .glass-ui {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Enhanced Safe Area Logic for Notched iPhones */
+        /* Adds extra 20px-30px padding on top of the OS safe area for high-contrast visibility */
+        .safe-top { padding-top: calc(env(safe-area-inset-top, 24px) + 20px); }
+        .safe-bottom { padding-bottom: calc(env(safe-area-inset-bottom, 24px) + 20px); }
+        .safe-margin-bottom { margin-bottom: calc(env(safe-area-inset-bottom, 24px) + 32px); }
+
+        .btn-action {
+            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-action:active { transform: scale(0.95); opacity: 0.8; }
+
+        .history-card {
+            background: #111;
+            border-left: 4px solid var(--accent-blue);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: fadeIn 0.4s ease forwards; }
+
+        .timer-part {
+            display: inline-block;
+            min-width: 1.2ch;
+            text-align: center;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-start">
+
+    <div id="message-overlay" class="hidden"></div>
+
+    <!-- HOME SCREEN -->
+    <div id="home-screen" class="w-full max-w-md flex flex-col h-full p-6 pt-12 overflow-y-auto animate-in">
+        <header class="mb-8 safe-top flex justify-between items-end">
+            <div>
+                <h1 class="text-xs uppercase tracking-[0.3em] font-bold text-zinc-500 mb-1">Calderon Cardio Coach</h1>
+                <h2 class="text-3xl font-black italic tracking-tighter">VERTICAL RECON</h2>
+            </div>
+            <button onclick="showHistory()" class="p-2 rounded-full bg-zinc-800 text-zinc-400">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"></path><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"></path><path d="M12 7v5l4 2"></path></svg>
+            </button>
+        </header>
+
+        <div id="workout-list" class="space-y-4 flex-1">
+            <!-- Buttons dynamically generated -->
+        </div>
+
+        <div class="mt-8 p-4 border border-zinc-800 rounded-xl bg-zinc-900/50 safe-margin-bottom">
+            <p class="text-zinc-500 text-[10px] leading-relaxed uppercase tracking-wider text-center">
+                Volume UP for beeps • Tracking enabled
+            </p>
+        </div>
+    </div>
+
+    <!-- WORKOUT SCREEN -->
+    <div id="workout-screen" class="hidden fixed inset-0 flex flex-col transition-colors duration-500 h-[100dvh]">
+        <!-- Top Bar (Lifted) -->
+        <div class="px-6 pb-4 flex flex-col z-10 relative safe-top">
+            <div class="flex justify-between items-start w-full">
+                <button onclick="exitWorkout()" class="glass-ui p-2 rounded-full btn-action">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+                <div class="flex-1 px-4 text-center">
+                    <h2 id="active-workout-name" class="text-sm font-black uppercase tracking-[0.2em] opacity-80">---</h2>
+                    <p id="active-workout-summary" class="text-xs uppercase tracking-wider opacity-70 mt-0.5">---</p>
+                </div>
+                <div id="round-indicator" class="glass-ui px-3 py-1 rounded-full text-xs font-black uppercase tracking-tighter whitespace-nowrap">RD --</div>
+            </div>
+            <!-- Progress Bar -->
+            <div class="w-full h-1.5 bg-zinc-200/20 mt-4 rounded-full overflow-hidden">
+                <div id="workout-progress-bar" class="h-full bg-[var(--progress-orange)] w-0 transition-all duration-500 ease-out"></div>
+            </div>
+        </div>
+
+        <!-- Main Timer Content -->
+        <div class="flex-1 flex flex-col items-center justify-center text-center p-4">
+            <div id="status-label" class="text-lg font-bold uppercase tracking-[0.3em] mb-2 opacity-80">READY</div>
+            
+            <div class="big-timer flex justify-center items-center w-full leading-none">
+                <span id="minutes-display" class="timer-part text-right">00</span>
+                <span class="opacity-40">:</span>
+                <span id="seconds-display" class="timer-part text-left">00</span>
+            </div>
+
+            <div id="task-detail" class="text-2xl font-black uppercase max-w-xs leading-tight">---</div>
+            
+            <div class="w-full flex justify-center px-10">
+                <div id="coach-notes" class="text-base font-bold opacity-80 mt-6 italic text-center max-w-sm leading-tight">---</div>
+            </div>
+        </div>
+
+        <!-- Bottom Control Bar (Lifted) -->
+        <div class="glass-ui mx-4 p-4 rounded-2xl flex justify-between items-center z-10 safe-margin-bottom">
+            <div class="text-left">
+                <div class="text-[10px] uppercase tracking-widest font-bold opacity-60">Up Next</div>
+                <div id="next-task" class="font-bold uppercase leading-tight text-sm">---</div>
+            </div>
+            <div class="flex gap-2">
+                <button id="reset-btn" onclick="resetWorkout()" class="p-3 rounded-xl bg-white/10 btn-action">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+                </button>
+                <button id="play-pause-btn" onclick="togglePlay()" class="p-3 px-5 rounded-xl bg-white text-black btn-action">
+                    <svg id="pause-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>
+                    <svg id="play-icon" class="hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const workouts = {
+            tuesday: {
+                id: 'tuesday',
+                name: "SIT Power Burpees",
+                summary: "8 Rounds • 30s Work / 120s Rest",
+                notes: "Focus on explosive drive through big toe.",
+                metric: "Intensity (1-10)",
+                warmup: 180,
+                rounds: 8,
+                phases: [
+                    { name: "WORK", duration: 30, task: "POWER BURPEE", intensity: "work" },
+                    { name: "REST", duration: 120, task: "RECOVER", intensity: "rest" }
+                ]
+            },
+            thursday: {
+                id: 'thursday',
+                name: "Vertical Fartlek",
+                summary: "10 Rounds • 12% Incline Hike",
+                notes: "Power Hike - Speed 3.5-4.0.",
+                metric: "Avg Speed (mph)",
+                warmup: 120,
+                rounds: 10,
+                phases: [
+                    { name: "WORK", duration: 60, task: "INCLINE 12%", intensity: "work" },
+                    { name: "REST", duration: 60, task: "INCLINE 2%", intensity: "rest" }
+                ]
+            },
+            saturday: {
+                id: 'saturday',
+                name: "High-Inertia Cycling",
+                summary: "10 Rounds • Heavy Res. / Fast Cadence",
+                notes: "Keep chest up on heavy climbs.",
+                metric: "Max Resistance",
+                warmup: 300,
+                rounds: 10,
+                phases: [
+                    { name: "WORK", duration: 45, task: "HEAVY (Standing)", intensity: "work" },
+                    { name: "REST", duration: 75, task: "FAST (Flush)", intensity: "rest" }
+                ]
+            }
+        };
+
+        let currentWorkout = null;
+        let timeline = [];
+        let currentIndex = 0;
+        let timeLeft = 0;
+        let timerInterval = null;
+        let isPaused = false;
+        let wakeLock = null;
+        let totalWorkoutSeconds = 0;
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function beep(freq = 440, duration = 0.1) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain); gain.connect(audioCtx.destination);
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.start(); osc.stop(audioCtx.currentTime + duration);
+        }
+
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+            }
+        }
+
+        function initWorkoutList() {
+            const list = document.getElementById('workout-list');
+            list.innerHTML = '';
+            Object.values(workouts).forEach(w => {
+                const lastLog = getHistory().filter(l => l.workoutId === w.id).shift();
+                const hint = lastLog ? `Last: ${lastLog.metricValue}` : 'No sessions logged';
+                const btn = document.createElement('button');
+                btn.className = "btn-workout w-full bg-zinc-900 border border-zinc-800 p-6 rounded-2xl flex flex-col items-start text-left btn-action";
+                btn.onclick = () => startWorkout(w.id);
+                btn.innerHTML = `<span class="text-zinc-500 font-bold text-xs mb-2 tracking-widest uppercase">${w.id}</span><span class="text-2xl font-black mb-1">${w.name.toUpperCase()}</span><div class="flex justify-between w-full items-center"><span class="text-zinc-400 text-[10px] italic">${w.summary}</span><span class="text-blue-500 text-[10px] font-bold uppercase tracking-widest">${hint}</span></div>`;
+                list.appendChild(btn);
+            });
+        }
+
+        function startWorkout(id) {
+            const data = workouts[id];
+            currentWorkout = data;
+            timeline = [{ type: 'WARM UP', duration: data.warmup, task: "WARM UP", intensity: 'warmup', round: 0 }];
+            for (let r = 1; r <= data.rounds; r++) {
+                data.phases.forEach(p => timeline.push({ ...p, type: p.name, round: r }));
+            }
+            timeline.push({ type: 'COMPLETE', duration: 0, task: "DONE", intensity: 'warmup', round: data.rounds });
+            totalWorkoutSeconds = timeline.reduce((acc, curr) => acc + curr.duration, 0);
+            currentIndex = 0;
+            timeLeft = timeline[0].duration;
+            isPaused = false;
+            document.getElementById('active-workout-name').innerText = data.name;
+            document.getElementById('active-workout-summary').innerText = data.summary;
+            document.getElementById('home-screen').classList.add('hidden');
+            document.getElementById('workout-screen').classList.remove('hidden');
+            requestWakeLock();
+            updateUI();
+            startTimer();
+        }
+
+        function startTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                if (!isPaused) {
+                    if (timeLeft > 0) {
+                        timeLeft--;
+                        if (timeLeft <= 5 && timeLeft > 0) beep(440, 0.1);
+                        if (timeLeft === 0) beep(880, 0.3);
+                        updateUI();
+                    } else { nextPhase(); }
+                }
+            }, 1000);
+        }
+
+        function nextPhase() {
+            currentIndex++;
+            if (currentIndex < timeline.length) {
+                timeLeft = timeline[currentIndex].duration;
+                updateUI();
+                if (timeline[currentIndex].type === 'DONE') finishWorkout();
+            } else { clearInterval(timerInterval); }
+        }
+
+        function finishWorkout() {
+            clearInterval(timerInterval);
+            document.getElementById('log-workout-title').innerText = currentWorkout.name;
+            document.getElementById('metric-label').innerText = currentWorkout.metric;
+            const lastLog = getHistory().find(l => l.workoutId === currentWorkout.id);
+            document.getElementById('metric-hint').innerText = lastLog ? `Last: ${lastLog.metricValue}` : "First session today";
+            document.getElementById('metric-input').value = lastLog ? lastLog.metricValue : "";
+            document.getElementById('log-modal').classList.remove('hidden');
+        }
+
+        function saveLog() {
+            const val = document.getElementById('metric-input').value;
+            if (!val) return;
+            const log = { date: new Date().toLocaleDateString(), workoutId: currentWorkout.id, workoutName: currentWorkout.name, metricLabel: currentWorkout.metric, metricValue: val };
+            const history = getHistory();
+            history.unshift(log);
+            localStorage.setItem('calderon_history', JSON.stringify(history));
+            closeLogModal();
+        }
+
+        function closeLogModal() {
+            document.getElementById('log-modal').classList.add('hidden');
+            exitWorkout();
+        }
+
+        function togglePlay() {
+            isPaused = !isPaused;
+            document.getElementById('play-icon').classList.toggle('hidden', !isPaused);
+            document.getElementById('pause-icon').classList.toggle('hidden', isPaused);
+        }
+
+        function resetWorkout() {
+            currentIndex = 0;
+            timeLeft = timeline[0].duration;
+            isPaused = false;
+            updateUI();
+        }
+
+        function exitWorkout() {
+            clearInterval(timerInterval);
+            if (wakeLock) { try { wakeLock.release(); } catch(e) {} wakeLock = null; }
+            document.getElementById('home-screen').classList.remove('hidden');
+            document.getElementById('workout-screen').classList.add('hidden');
+            initWorkoutList();
+        }
+
+        function updateUI() {
+            const current = timeline[currentIndex];
+            const next = timeline[currentIndex + 1];
+            const screen = document.getElementById('workout-screen');
+            let elapsedInPrevPhases = 0;
+            for (let i = 0; i < currentIndex; i++) elapsedInPrevPhases += timeline[i].duration;
+            const currentElapsed = elapsedInPrevPhases + (timeline[currentIndex].duration - timeLeft);
+            const progressPercent = totalWorkoutSeconds > 0 ? (currentElapsed / totalWorkoutSeconds) * 100 : 0;
+            document.getElementById('workout-progress-bar').style.width = `${progressPercent}%`;
+            screen.className = 'fixed inset-0 flex flex-col transition-colors duration-500 h-[100dvh] ' + (current.intensity === 'work' ? 'intensity-work' : current.intensity === 'rest' ? 'intensity-rest' : 'intensity-warmup');
+            document.getElementById('minutes-display').innerText = Math.floor(timeLeft/60).toString().padStart(2,'0');
+            document.getElementById('seconds-display').innerText = (timeLeft%60).toString().padStart(2,'0');
+            document.getElementById('status-label').innerText = current.type;
+            document.getElementById('task-detail').innerText = current.task;
+            document.getElementById('coach-notes').innerText = `"${currentWorkout.notes}"`;
+            document.getElementById('round-indicator').innerText = current.round === 0 ? "WM UP" : `RD ${current.round}/${currentWorkout.rounds}`;
+            if (next) document.getElementById('next-task').innerText = `${next.duration}s ${next.task}`;
+            else document.getElementById('next-task').innerText = "DONE";
+        }
+
+        function getHistory() { const h = localStorage.getItem('calderon_history'); return h ? JSON.parse(h) : []; }
+
+        function showHistory() {
+            const content = document.getElementById('history-content');
+            const history = getHistory();
+            content.innerHTML = '';
+            if (history.length === 0) { content.innerHTML = '<p class="text-zinc-600 text-center py-20 uppercase font-black tracking-widest">No Sessions Yet</p>'; }
+            else { history.forEach(log => { const card = document.createElement('div'); card.className = "history-card p-4 rounded-xl flex justify-between items-center"; card.innerHTML = `<div><p class="text-[10px] text-zinc-500 font-bold uppercase tracking-widest">${log.date}</p><p class="font-black text-lg">${log.workoutName.toUpperCase()}</p></div><div class="text-right"><p class="text-[9px] text-zinc-500 uppercase tracking-tighter">${log.metricLabel}</p><p class="text-2xl font-black text-blue-500">${log.metricValue}</p></div>`; content.appendChild(card); }); }
+            document.getElementById('history-screen').classList.remove('hidden');
+        }
+
+        function hideHistory() { document.getElementById('history-screen').classList.add('hidden'); }
+        function clearHistory() { if (confirm("Delete all training data?")) { localStorage.removeItem('calderon_history'); showHistory(); initWorkoutList(); } }
+
+        window.onload = initWorkoutList;
+        document.addEventListener('click', () => { if (audioCtx.state === 'suspended') audioCtx.resume(); }, { once: true });
+    </script>
+</body>
+</html>
